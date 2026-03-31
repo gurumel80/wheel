@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Wheel of Fortune — a fun, accessible random spinner for classrooms, parties and game nights. Built by Creative Chaos Studios.">
+  <meta name="author" content="Creative Chaos Studios">
+  <meta name="theme-color" content="#07071a">
+  <title>Wheel of Fortune — Creative Chaos Studios</title>
+  <!--
+    Wheel of Fortune
+    © 2025 Creative Chaos Studios (creativechaosstudios.xyz)
+    Created by Mel — Creative Chaos Studios
+    Built with assistance from Claude (Anthropic)
+
+    Licence: MIT
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software to use, copy, modify, merge, publish, distribute, and/or
+    sell copies, subject to the following conditions:
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+    Fonts: Fredoka One & Share Tech Mono via Google Fonts (SIL OFL 1.1)
+    No external runtime dependencies — fully self-contained after font load.
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      font-family: 'Fredoka One', cursive;
+      background: #07071a;
+      color: #fff;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ════════ SETUP ════════ */
+    #setup {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 100svh;
+      padding: clamp(1rem,4vw,2.5rem); gap: clamp(.6rem,1.5vw,1.1rem);
+    }
+    #setup h1 { color:#ffd700; font-size:clamp(1.6rem,5vw,2.6rem); text-align:center; text-shadow:0 0 30px #ffd700aa,0 3px 0 #7a5900; }
+    #setup p  { color:#aaa; font-family:'Share Tech Mono',monospace; font-size:clamp(.7rem,1.8vw,.9rem); letter-spacing:1px; }
+    #count-row { display:flex; align-items:center; gap:12px; }
+    #count-row label { color:#ffd700; font-size:clamp(.9rem,2vw,1.1rem); }
+    #count-input {
+      background:#1a1a2e; border:2px solid #ffd700; color:#ffd700;
+      padding:8px 14px; font-family:'Fredoka One',cursive; font-size:1.1rem;
+      width:80px; text-align:center; border-radius:8px; outline:none;
+    }
+    #count-input:focus { box-shadow:0 0 0 3px #ffd70044; }
+    #entries { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; max-width:520px; }
+    .entry-input {
+      background:#1a1a2e; border:2px solid #444; color:#fff;
+      padding:8px 11px; font-family:'Share Tech Mono',monospace;
+      font-size:.88rem; border-radius:8px; outline:none; transition:border-color .15s;
+    }
+    .entry-input:focus { border-color:#ffd700; box-shadow:0 0 0 3px #ffd70022; }
+    #teacher-panel { background:#1a1200; border:2px solid #665500; border-radius:12px; padding:12px 18px; width:100%; max-width:520px; }
+    #teacher-toggle-row { display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+    #teacher-toggle-row span { color:#ffaa00; font-size:.95rem; }
+    #teacher-check { width:18px; height:18px; accent-color:#ffaa00; cursor:pointer; }
+    #teacher-select-row { display:none; margin-top:10px; flex-direction:column; gap:5px; }
+    #teacher-select-row label { color:#ffaa00; font-size:.85rem; font-family:'Share Tech Mono',monospace; letter-spacing:1px; }
+    #teacher-select { background:#0f0d00; border:2px solid #ffaa00; color:#ffff88; padding:7px 11px; font-family:'Fredoka One',cursive; font-size:.95rem; border-radius:8px; outline:none; width:100%; }
+    #teacher-note { color:#886600; font-family:'Share Tech Mono',monospace; font-size:.72rem; margin-top:5px; font-style:italic; }
+    .setup-go {
+      font-family:'Fredoka One',cursive; font-size:clamp(1.1rem,2.5vw,1.4rem);
+      letter-spacing:1px; border:none; border-radius:14px; cursor:pointer;
+      padding:14px 52px; background:#ffd700; color:#3a2000;
+      box-shadow:0 7px 0 #a07000,0 10px 20px #00000077;
+      transition:transform .08s,box-shadow .08s,filter .1s;
+    }
+    .setup-go:hover  { filter:brightness(1.08); }
+    .setup-go:active { transform:translateY(5px); box-shadow:0 2px 0 #a07000; }
+    .setup-go:focus-visible { outline:3px solid #ffd700; outline-offset:4px; }
+
+    /* ════════ GAME ════════ */
+    #game { display:none; width:100%; min-height:100svh; }
+    #game-inner {
+      display:grid;
+      grid-template-columns: minmax(140px,1.4fr) minmax(0,3fr) minmax(140px,1.4fr);
+      min-height:100svh; align-items:stretch;
+    }
+
+    /* Left: title sign — uses container queries so font scales to panel width not viewport */
+    #title-panel {
+      grid-column:1; display:flex; align-items:center; justify-content:center;
+      padding:clamp(6px,1.2vw,16px) clamp(4px,0.8vw,10px);
+      background:linear-gradient(180deg,#0e0a00,#07071a);
+      border-right:2px solid #2a2000;
+      container-type:inline-size;
+      container-name:titlepanel;
+      min-width:0;
+      overflow:hidden;
+    }
+    #title-sign {
+      background:#150c00; border:3px solid #ffd700;
+      border-radius:12px; padding:8px 6px;
+      text-align:center; position:relative; width:100%;
+      box-shadow:0 0 0 2px #7a5900,0 0 40px #ffd70066,inset 0 2px 0 #ffd70033,0 8px 40px #00000099;
+      overflow:hidden;
+    }
+    #title-sign::before {
+      content:''; position:absolute; inset:5px;
+      border:2px dashed #ffd70044; border-radius:8px; pointer-events:none;
+    }
+    #title-bulbs-top, #title-bulbs-bot { display:flex; justify-content:space-around; flex-wrap:wrap; }
+    /* Bulbs scale with panel width via cqi */
+    .title-bulb { width:clamp(6px,3cqi,13px); height:clamp(6px,3cqi,13px); border-radius:50%; margin:2px 1px; flex-shrink:0; }
+    /* Font scales with the panel container width — never overflows */
+    #sign-line1 { color:#ffd700; font-size:clamp(1.2rem,15cqi,4rem); line-height:1.0; text-shadow:0 0 20px #ffd700cc,0 2px 0 #7a5900; margin:6px 0 4px; }
+    #sign-line2 { color:#ff9900; font-size:clamp(1rem,13cqi,3.2rem); line-height:1.1; text-shadow:0 0 16px #ff990099,0 1px 0 #7a3000; margin-bottom:2px; }
+    #sign-line3 { color:#ff9900; font-size:clamp(1rem,13cqi,3.2rem); line-height:1.1; text-shadow:0 0 16px #ff990099,0 1px 0 #7a3000; margin-bottom:6px; }
+
+    /* Centre: wheel — single canvas, lights drawn inside it */
+    #wheel-col {
+      grid-column:2; display:flex; align-items:center; justify-content:center;
+      padding:clamp(8px,2vw,20px) 0;
+    }
+    #wheel-wrap {
+      position:relative;
+      display:inline-flex;
+      align-items:center; justify-content:center;
+    }
+    /* Single canvas — sized to fill the column comfortably */
+    #wheel-canvas {
+      display:block;
+      /* No CSS filter here — it would clip canvas content at the element boundary.
+         The wheel glow is painted inside the canvas itself instead. */
+      width:  min(100%, min(58vw, 90svh));
+      height: min(100%, min(58vw, 90svh));
+    }
+    #pin {
+      position:absolute; top:-1%; left:50%; transform:translateX(-50%);
+      z-index:10; pointer-events:none;
+      filter:drop-shadow(0 0 8px #ff2200);
+      width:clamp(20px,3.5vw,36px); height:auto;
+    }
+
+    /* Right: controls */
+    #controls-panel {
+      grid-column:3; display:flex; flex-direction:column;
+      align-items:stretch; justify-content:center;
+      padding:clamp(6px,1.2vw,16px) clamp(4px,0.8vw,10px);
+      gap:clamp(8px,1.5vw,18px);
+      background:linear-gradient(180deg,#07071a,#0e0800);
+      border-left:2px solid #2a2000;
+      container-type:inline-size;
+      container-name:ctrlpanel;
+      min-width:0;
+      overflow:hidden;
+    }
+    #spin-wrap { flex:1; display:flex; align-items:center; justify-content:center; }
+    #spin-btn {
+      font-family:'Fredoka One',cursive; letter-spacing:2px; border:none;
+      border-radius:clamp(14px,2.5vw,24px); cursor:pointer;
+      background:#1fc23a; color:#fff; width:100%; aspect-ratio:1/1;
+      display:flex; align-items:center; justify-content:center;
+      flex-direction:column; gap:clamp(2px,.6vw,6px);
+      box-shadow:0 clamp(6px,1.2vw,14px) 0 #0d7a1e,0 clamp(8px,1.6vw,18px) clamp(18px,3vw,34px) #00000099;
+      transition:transform .08s,box-shadow .08s,filter .1s;
+      position:relative; overflow:hidden;
+    }
+    #spin-btn::before { content:''; position:absolute; top:0; left:0; right:0; height:46%; background:rgba(255,255,255,.15); border-radius:inherit; pointer-events:none; }
+    #spin-btn:hover  { filter:brightness(1.1); }
+    #spin-btn:active { transform:translateY(clamp(4px,1vw,10px)); box-shadow:0 2px 0 #0d7a1e !important; }
+    #spin-btn:focus-visible { outline:3px solid #fff; outline-offset:4px; }
+    #spin-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .spin-icon  { font-size:clamp(1.6rem,20cqi,6rem); display:block; line-height:1; }
+    .spin-label { font-size:clamp(1.4rem,18cqi,5.5rem); display:block; line-height:1; letter-spacing:2px; }
+    #reset-btn {
+      font-family:'Fredoka One',cursive; font-size:clamp(.9rem,7cqi,1.6rem);
+      letter-spacing:1px; border:none; border-radius:clamp(10px,1.8vw,18px);
+      cursor:pointer; background:#e02828; color:#fff;
+      padding:clamp(10px,1.8vw,18px) clamp(10px,1.5vw,16px);
+      box-shadow:0 clamp(5px,.9vw,8px) 0 #880010,0 clamp(7px,1.2vw,12px) clamp(14px,2.5vw,22px) #00000088;
+      transition:transform .08s,box-shadow .08s,filter .1s;
+      position:relative; overflow:hidden; flex-shrink:0;
+    }
+    #reset-btn::before { content:''; position:absolute; top:0; left:0; right:0; height:46%; background:rgba(255,255,255,.13); pointer-events:none; }
+    #reset-btn:hover  { filter:brightness(1.1); }
+    #reset-btn:active { transform:translateY(clamp(3px,.8vw,7px)); box-shadow:0 2px 0 #880010 !important; }
+    #reset-btn:focus-visible { outline:3px solid #ff8888; outline-offset:4px; }
+
+    /* Mobile */
+    @media (max-width:600px) {
+      #game-inner { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; min-height:100svh; }
+      #title-panel { grid-column:1; grid-row:1; border-right:none; border-bottom:2px solid #2a2000; padding:10px 16px; }
+      #title-sign  { display:flex; align-items:center; gap:10px; border-radius:14px; padding:10px 14px; }
+      #title-sign::before, #title-bulbs-top, #title-bulbs-bot { display:none; }
+      #sign-line1  { font-size:clamp(1.4rem,7vw,2.2rem); margin:0; }
+      #sign-line2  { font-size:clamp(1rem,5.5vw,1.6rem); margin:0; }
+      #sign-line3  { font-size:clamp(1rem,5.5vw,1.6rem); margin:0; }
+      #wheel-col   { grid-column:1; grid-row:2; padding:12px 8px; }
+      #wheel-canvas { width:min(96vw,70svh); height:min(96vw,70svh); }
+      #controls-panel { grid-column:1; grid-row:3; flex-direction:row; align-items:stretch; border-left:none; border-top:2px solid #2a2000; padding:12px 16px; gap:12px; }
+      #spin-wrap { flex:1; }
+      #spin-btn   { aspect-ratio:auto; width:100%; padding:16px 10px; flex-direction:row; gap:10px; }
+      .spin-icon  { font-size:clamp(1.4rem,6vw,2.2rem); }
+      .spin-label { font-size:clamp(1.4rem,6vw,2.2rem); }
+      #reset-btn  { width:auto; min-width:90px; align-self:stretch; font-size:clamp(.9rem,4vw,1.1rem); padding:14px 12px; }
+    }
+
+    /* Winner */
+    #winner-overlay { display:none; position:fixed; inset:0; background:#000000cc; z-index:100; align-items:center; justify-content:center; }
+    #winner-box {
+      background:#1c1800; border:3px solid #ffd700; border-radius:24px;
+      padding:clamp(1.5rem,4vw,2.8rem) clamp(1.5rem,5vw,3.2rem);
+      text-align:center; box-shadow:0 0 80px #ffd70088; max-width:90vw;
+      animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes popIn { from{transform:scale(.3);opacity:0} to{transform:scale(1);opacity:1} }
+    #tada { font-size:clamp(2rem,5vw,3.2rem); margin-bottom:.4rem; display:block; animation:bounce .9s infinite; }
+    @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    #winner-label { font-family:'Share Tech Mono',monospace; color:#aaa; font-size:clamp(.7rem,1.5vw,.85rem); letter-spacing:3px; margin-bottom:.4rem; }
+    #winner-name  { color:#ffd700; font-size:clamp(1.6rem,4vw,2.6rem); text-shadow:0 0 30px #ffd700aa,0 2px 0 #7a5900; margin-bottom:1.4rem; word-break:break-word; max-width:380px; margin-left:auto; margin-right:auto; }
+    .win-again {
+      font-family:'Fredoka One',cursive; font-size:clamp(1rem,2.5vw,1.3rem);
+      border:none; border-radius:14px; cursor:pointer; padding:13px 40px;
+      background:#ffd700; color:#3a2000;
+      box-shadow:0 6px 0 #a07000,0 9px 18px #00000077; display:inline-block;
+      transition:transform .08s,box-shadow .08s,filter .1s;
+    }
+    .win-again:hover  { filter:brightness(1.08); }
+    .win-again:active { transform:translateY(4px); box-shadow:0 2px 0 #a07000; }
+    .win-again:focus-visible { outline:3px solid #ffd700; outline-offset:4px; }
+
+    #footer { position:fixed; bottom:6px; right:10px; font-family:'Share Tech Mono',monospace; font-size:.65rem; color:#ffffff22; pointer-events:none; z-index:50; letter-spacing:.5px; }
+  </style>
+</head>
+<body>
+
+  <!-- SETUP -->
+  <div id="setup" role="main">
+    <h1>🎡 Wheel of Fortune</h1>
+    <p>HOW MANY ENTRIES ON THE WHEEL?</p>
+    <div id="count-row">
+      <label for="count-input">ENTRIES:</label>
+      <input id="count-input" type="number" min="2" max="20" value="6" aria-label="Number of entries">
+    </div>
+    <div id="entries" role="list" aria-label="Wheel entries"></div>
+    <div id="teacher-panel" aria-label="Teacher mode options">
+      <div id="teacher-toggle-row" onclick="toggleTeacher()" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' '){toggleTeacher();}"
+           aria-expanded="false" aria-controls="teacher-select-row">
+        <span aria-hidden="true">🍎</span>
+        <span>Teacher Mode — fix the winner</span>
+        <input id="teacher-check" type="checkbox"
+               onclick="event.stopPropagation();toggleTeacher()"
+               aria-label="Enable teacher mode">
+      </div>
+      <div id="teacher-select-row" role="region" aria-label="Teacher mode winner selection">
+        <label for="teacher-select">PICK THE WINNER:</label>
+        <select id="teacher-select" aria-label="Choose forced winner">
+          <option value="">— any winner —</option>
+        </select>
+        <div id="teacher-note">The wheel will spin normally… and land exactly here. 😉</div>
+      </div>
+    </div>
+    <button class="setup-go" onclick="buildWheel()" aria-label="Start the wheel">LET'S GO!</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="game" role="main" aria-label="Wheel of Fortune game">
+    <div id="game-inner">
+
+      <div id="title-panel" aria-hidden="true">
+        <div id="title-sign">
+          <div id="title-bulbs-top"></div>
+          <div id="sign-line1">WHEEL</div>
+          <div id="sign-line2">OF</div>
+          <div id="sign-line3">FORTUNE</div>
+          <div id="title-bulbs-bot"></div>
+        </div>
+      </div>
+
+      <div id="wheel-col">
+        <div id="wheel-wrap">
+          <!-- Wheel canvas — drawn by JS -->
+          <canvas id="wheel-canvas" width="600" height="600"
+                  role="img" aria-label="Spinning wheel of fortune"></canvas>
+
+          <svg id="pin" viewBox="0 0 30 52" xmlns="http://www.w3.org/2000/svg"
+               aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="pg" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%"   stop-color="#ff6644"/>
+                <stop offset="45%"  stop-color="#ff2200"/>
+                <stop offset="100%" stop-color="#991100"/>
+              </linearGradient>
+            </defs>
+            <polygon points="15,52 1,8 29,8"  fill="url(#pg)"/>
+            <polygon points="15,52 1,8 29,8"  fill="rgba(255,255,255,0.1)"/>
+            <rect x="3" y="0" width="24" height="12" rx="6" fill="url(#pg)"/>
+            <rect x="3" y="0" width="24" height="5"  rx="5" fill="rgba(255,255,255,0.28)"/>
+            <circle cx="15" cy="6" r="3" fill="#ffcc00"/>
+          </svg>
+        </div>
+      </div>
+
+      <div id="controls-panel">
+        <div id="spin-wrap">
+          <button id="spin-btn" onclick="spin()" aria-label="Spin the wheel">
+            <span class="spin-icon" aria-hidden="true">🎯</span>
+            <span class="spin-label">SPIN!</span>
+          </button>
+        </div>
+        <button id="reset-btn" onclick="reset()" aria-label="Reset and go back to entry screen">↩ RESET</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- WINNER -->
+  <div id="winner-overlay" role="dialog" aria-modal="true" aria-labelledby="winner-name"
+       onclick="closeWinner()">
+    <div id="winner-box" onclick="event.stopPropagation()">
+      <span id="tada" aria-hidden="true">🎉</span>
+      <div id="winner-label">AND THE WINNER IS...</div>
+      <div id="winner-name" aria-live="assertive"></div>
+      <button class="win-again" onclick="closeWinner()" aria-label="Close and spin again">SPIN AGAIN!</button>
+    </div>
+  </div>
+
+  <div id="footer" aria-hidden="true">© 2025 Creative Chaos Studios</div>
+
+  <script>
+    'use strict';
+
+    /*
+      DATA PRIVACY NOTICE
+      This application stores NO user data of any kind.
+      - No localStorage, sessionStorage, IndexedDB or cookies are used.
+      - No network requests are made (fonts load from Google Fonts on first use only).
+      - All data (wheel entries, names) exists only in memory for the current browser
+        session and is permanently discarded when the page is closed or reset.
+      - No analytics, tracking or telemetry of any kind is present.
+      © 2025 Creative Chaos Studios (creativechaosstudios.xyz)
+    */
+
+    /* ── Constants ── */
+    const COLORS = [
+      ['#e63946','#ff6b75'],['#f4a261','#ffc18a'],['#2a9d8f','#4ecdc4'],
+      ['#e9c46a','#ffe59a'],['#6a4c93','#9b6fd4'],['#48cae4','#80dfff'],
+      ['#f77f00','#ffaa44'],['#3a86ff','#80b4ff'],['#8338ec','#bb77ff'],
+      ['#06d6a0','#44ffcc'],['#ff006e','#ff66aa'],['#219ebc','#55d4f0'],
+      ['#d62828','#ff6060'],['#ffb703','#ffe066'],['#023e8a','#3a7bd5']
+    ];
+    const LIGHT_COLS = ['#ff0000','#ff7700','#ffff00','#00ff44','#00eeff','#0088ff','#cc00ff','#ff0088'];
+    const SIGN_COLS  = ['#ff0000','#ff9900','#ffff00','#00ff88','#00ccff','#cc44ff'];
+    const MIN_SEGS   = 8;
+    const MAX_ENTRIES = 20;
+    const MAX_LABEL   = 30;
+
+    /* ── State ── */
+    let segs         = [];
+    let angle        = 0;
+    let spinning     = false;
+    let audioCtx     = null;
+    let animId       = null;
+    let lightTimer   = null;
+    let roObserver   = null;
+    let teacherMode  = false;
+    let forcedWinner = null;
+    let lightFrame   = 0;
+
+    /* ── Init ── */
+    document.getElementById('count-input').addEventListener('change', () => {
+      buildEntries(); updateTeacherSelect();
+    });
+    buildEntries();
+    buildSignBulbs();
+
+    /* ── Sign bulbs ── */
+    function buildSignBulbs() {
+      ['title-bulbs-top','title-bulbs-bot'].forEach(id => {
+        const el = document.getElementById(id);
+        for (let i = 0; i < 7; i++) {
+          const b = document.createElement('div');
+          b.className = 'title-bulb';
+          b.dataset.c = SIGN_COLS[i % SIGN_COLS.length];
+          el.appendChild(b);
+        }
+      });
+      let f = 0;
+      const all = [...document.querySelectorAll('.title-bulb')];
+      (function tick() {
+        f++;
+        all.forEach((b, i) => {
+          const on = (i + f) % 2 === 0;
+          b.style.background = on ? b.dataset.c : '#1a1200';
+          b.style.boxShadow  = on ? `0 0 7px 3px ${b.dataset.c}aa` : 'none';
+        });
+        setTimeout(tick, 350);
+      })();
+    }
+
+    /* ── Entry inputs ── */
+    function buildEntries() {
+      const n = Math.max(2, Math.min(MAX_ENTRIES, parseInt(document.getElementById('count-input').value) || 6));
+      const wrap = document.getElementById('entries');
+      wrap.innerHTML = '';
+      for (let i = 0; i < n; i++) {
+        const inp = document.createElement('input');
+        inp.className   = 'entry-input';
+        inp.placeholder = `Entry ${i + 1}`;
+        inp.maxLength   = MAX_LABEL;
+        inp.setAttribute('aria-label', `Entry ${i + 1}`);
+        inp.setAttribute('role', 'listitem');
+        inp.addEventListener('input', updateTeacherSelect);
+        wrap.appendChild(inp);
+      }
+    }
+
+    function sanitise(str) {
+      return str.replace(/[<>"'`]/g, '').trim().slice(0, MAX_LABEL);
+    }
+
+    function updateTeacherSelect() {
+      const raw  = Array.from(document.querySelectorAll('.entry-input')).map(i => sanitise(i.value)).filter(Boolean);
+      const sel  = document.getElementById('teacher-select');
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">— any winner —</option>';
+      raw.forEach(v => {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        sel.appendChild(o);
+      });
+      if (prev && raw.includes(prev)) sel.value = prev;
+    }
+
+    function toggleTeacher() {
+      const cb  = document.getElementById('teacher-check');
+      teacherMode = cb.checked;
+      const row = document.getElementById('teacher-select-row');
+      document.getElementById('teacher-toggle-row').setAttribute('aria-expanded', String(teacherMode));
+      row.style.display = teacherMode ? 'flex' : 'none';
+      if (teacherMode) updateTeacherSelect();
+    }
+
+    /* ── Build wheel ── */
+    function buildWheel() {
+      const raw = Array.from(document.querySelectorAll('.entry-input')).map(i => sanitise(i.value)).filter(Boolean);
+      if (raw.length < 2) { alert('Please enter at least 2 entries!'); return; }
+      let items = [...raw];
+      while (items.length < MIN_SEGS) items = [...items, ...raw];
+      if (items.length > MIN_SEGS * 2) items = items.slice(0, MIN_SEGS * 2);
+      segs  = items;
+      angle = 0;
+      const sel = document.getElementById('teacher-select').value;
+      forcedWinner = (teacherMode && sel) ? sanitise(sel) : null;
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('game').style.display  = 'block';
+      // Double-RAF: ensure layout is complete before first draw
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        drawWheel();
+        startLightAnimation();
+        attachResizeObserver();
+      }));
+    }
+
+    /* ══════════════════════════════════════════════
+       LIGHTS — drawn directly onto the wheel canvas,
+       BEFORE the wheel itself (so wheel sits on top).
+       Orbit radius > rim so lights ring the outside.
+       Driven by lightFrame, incremented by setInterval.
+    ══════════════════════════════════════════════ */
+    const LIGHT_COUNT  = 40;
+    const LIGHT_R_FACTOR = 0.515; // orbit just outside rim; glow (dotR*3.5) fits inside 50px canvas margin
+
+    function drawLightsOnCanvas(c, W, WD, OFFSET) {
+      // cx/cy = canvas centre; lights orbit at the wheel rim edge, in canvas coords
+      const cx = W / 2, cy = W / 2;
+      const lr   = WD * LIGHT_R_FACTOR;   // orbit radius relative to wheel drawing size
+      const dotR = WD * 0.018;            // dot size relative to wheel
+      for (let i = 0; i < LIGHT_COUNT; i++) {
+        const a   = (i / LIGHT_COUNT) * Math.PI * 2;
+        const x   = cx + lr * Math.cos(a);
+        const y   = cy + lr * Math.sin(a);
+        const col = LIGHT_COLS[i % LIGHT_COLS.length];
+        const on  = (i + lightFrame) % 3 !== 0;
+        if (on) {
+          const grd = c.createRadialGradient(x, y, 0, x, y, dotR * 3.5);
+          grd.addColorStop(0,   col + 'cc');
+          grd.addColorStop(0.4, col + '55');
+          grd.addColorStop(1,   col + '00');
+          c.beginPath(); c.arc(x, y, dotR * 3.5, 0, Math.PI * 2);
+          c.fillStyle = grd; c.fill();
+          c.beginPath(); c.arc(x, y, dotR, 0, Math.PI * 2);
+          c.fillStyle = col; c.fill();
+          c.beginPath(); c.arc(x - dotR*.3, y - dotR*.3, dotR*.4, 0, Math.PI * 2);
+          c.fillStyle = 'rgba(255,255,255,0.7)'; c.fill();
+        } else {
+          c.beginPath(); c.arc(x, y, dotR, 0, Math.PI * 2);
+          c.fillStyle = '#1a1010'; c.fill();
+        }
+      }
+    }
+
+    function startLightAnimation() {
+      if (lightTimer) clearInterval(lightTimer);
+      lightFrame = 0;
+      lightTimer = setInterval(() => { lightFrame++; drawWheel(); }, 130);
+    }
+
+    /* ── Resize observer — just redraw, no repositioning needed ── */
+    function attachResizeObserver() {
+      if (roObserver) roObserver.disconnect();
+      const canvas = document.getElementById('wheel-canvas');
+      roObserver = new ResizeObserver(() => drawWheel());
+      roObserver.observe(canvas);
+    }
+
+    /* ── Draw wheel ── */
+    function drawWheel() {
+      const cv = document.getElementById('wheel-canvas');
+      const c  = cv.getContext('2d');
+      const W  = cv.width, H = cv.height;
+      const OFFSET = 50;
+      const WD = W - OFFSET * 2; // inner wheel drawing area (500 when canvas is 600)
+      const cx = W / 2, cy = H / 2, r = WD * 0.46;
+      const n  = segs.length, arc = (Math.PI * 2) / n;
+
+      c.clearRect(0, 0, W, H);
+
+      // Lights ring — drawn first (behind the wheel)
+      drawLightsOnCanvas(c, W, WD, OFFSET);
+
+      // Metallic rim
+      const rim = c.createRadialGradient(cx, cy, r - 2, cx, cy, r + WD * .04);
+      rim.addColorStop(0, '#777'); rim.addColorStop(0.25, '#fff');
+      rim.addColorStop(0.6, '#bbb'); rim.addColorStop(1, '#444');
+      c.beginPath(); c.arc(cx, cy, r + W * .04, 0, Math.PI * 2);
+      c.fillStyle = rim; c.fill();
+
+      // Rim bolts
+      for (let i = 0; i < n; i++) {
+        const a  = angle + i * arc + arc / 2;
+        const bx = cx + (r + W * .02) * Math.cos(a);
+        const by = cy + (r + W * .02) * Math.sin(a);
+        c.beginPath(); c.arc(bx, by, W * .01, 0, Math.PI * 2);
+        const bg = c.createRadialGradient(bx-1, by-1, 0, bx, by, W * .01);
+        bg.addColorStop(0, '#fff'); bg.addColorStop(.5, '#ccc'); bg.addColorStop(1, '#666');
+        c.fillStyle = bg; c.fill();
+      }
+
+      // Calculate one font size for ALL labels — fit the longest word into the segment
+      // Available text width = rim radius minus margins
+      // Available label width: from near the hub to near the rim
+      const maxTextW = r * 0.78;
+      // Cap: never bigger than fits ~3 chars naturally, never smaller than 11px
+      const maxFs    = Math.min(WD * 0.048, 22);
+      const minFs    = 11;
+      // Binary-search: find largest size where the longest label still fits
+      const longestLabel = segs.reduce((a, b) => a.length >= b.length ? a : b, '');
+      let sharedFs = minFs;
+      {
+        let lo = minFs, hi = maxFs;
+        for (let iter = 0; iter < 16; iter++) {
+          const mid = (lo + hi) / 2;
+          c.font = `bold ${mid}px 'Fredoka One', cursive`;
+          if (c.measureText(longestLabel).width <= maxTextW) lo = mid; else hi = mid;
+        }
+        sharedFs = Math.max(minFs, Math.floor(lo));
+      }
+
+      // Segments
+      for (let i = 0; i < n; i++) {
+        const s = angle + i * arc, e = s + arc;
+        const [dk, lt] = COLORS[i % COLORS.length];
+        c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, r, s, e); c.closePath();
+        const ma = s + arc / 2;
+        const sg = c.createRadialGradient(cx + r*.15*Math.cos(ma), cy + r*.15*Math.sin(ma), 0, cx, cy, r);
+        sg.addColorStop(0, lt); sg.addColorStop(1, dk);
+        c.fillStyle = sg; c.fill();
+        c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, r, s, e); c.closePath(); c.stroke();
+
+        // Label — font size calculated once outside loop (see below)
+        c.save();
+        c.translate(cx, cy); c.rotate(s + arc / 2); c.textAlign = 'right';
+        c.font = `bold ${sharedFs}px 'Fredoka One', cursive`;
+        c.fillStyle = 'rgba(0,0,0,0.3)';
+        c.fillText(segs[i], r - r*.08, sharedFs*.35 + 1);
+        c.fillStyle = '#fff'; c.shadowColor = 'rgba(0,0,0,0.9)'; c.shadowBlur = 3;
+        c.fillText(segs[i], r - r*.08, sharedFs*.35);
+        c.restore();
+      }
+
+      // Gloss
+      const gl = c.createRadialGradient(cx - r*.3, cy - r*.3, 8, cx, cy, r);
+      gl.addColorStop(0, 'rgba(255,255,255,0.2)'); gl.addColorStop(.5, 'rgba(255,255,255,0.04)'); gl.addColorStop(1, 'transparent');
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fillStyle = gl; c.fill();
+
+      // Hub
+      const hr = W * .07;
+      const hg = c.createRadialGradient(cx - hr*.3, cy - hr*.3, 2, cx, cy, hr);
+      hg.addColorStop(0, '#fff'); hg.addColorStop(.3, '#ffd700');
+      hg.addColorStop(.7, '#b8860b'); hg.addColorStop(1, '#7a5900');
+      c.beginPath(); c.arc(cx, cy, hr, 0, Math.PI * 2); c.fillStyle = hg; c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 2; c.stroke();
+      c.beginPath(); c.arc(cx - hr*.32, cy - hr*.32, hr*.32, 0, Math.PI * 2);
+      c.fillStyle = 'rgba(255,255,255,0.32)'; c.fill();
+    }
+
+    /* ── Winner detection ── */
+    function getWinnerIndex() {
+      const n   = segs.length;
+      const arc = (Math.PI * 2) / n;
+      const norm = (((-Math.PI/2 - angle) % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+      return Math.floor(norm / arc) % n;
+    }
+
+    function calcFinalAngle() {
+      const n   = segs.length;
+      const arc = (Math.PI * 2) / n;
+      if (forcedWinner) {
+        const idx = segs.indexOf(forcedWinner);
+        if (idx >= 0) {
+          const base  = -Math.PI/2 - idx*arc - arc/2;
+          const spins = 8 + Math.floor(Math.random() * 6);
+          return base - spins * Math.PI * 2;
+        }
+      }
+      const spins = 8 + Math.floor(Math.random() * 6);
+      return angle - spins * Math.PI * 2 - Math.random() * Math.PI * 2;
+    }
+
+    /* ── Audio ── */
+    function getAudioCtx() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+    function clickSound(vol) {
+      try {
+        const a = getAudioCtx(), buf = a.createBuffer(1, a.sampleRate*.04, a.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(d.length*.3));
+        const src = a.createBufferSource(), g = a.createGain();
+        src.buffer = buf; g.gain.value = vol;
+        src.connect(g); g.connect(a.destination); src.start();
+      } catch(e) {}
+    }
+    function playTada() {
+      try {
+        const a = getAudioCtx();
+        [[523,0],[659,.1],[784,.2],[1047,.32],[1047,.44]].forEach(([f,t]) => {
+          const o = a.createOscillator(), g = a.createGain();
+          o.type = 'triangle'; o.frequency.value = f;
+          g.gain.setValueAtTime(0, a.currentTime+t);
+          g.gain.linearRampToValueAtTime(.3, a.currentTime+t+.06);
+          g.gain.linearRampToValueAtTime(0,  a.currentTime+t+.4);
+          o.connect(g); g.connect(a.destination);
+          o.start(a.currentTime+t); o.stop(a.currentTime+t+.45);
+        });
+      } catch(e) {}
+    }
+
+    /* ── Spin ── */
+    function spin() {
+      if (spinning) return;
+      spinning = true;
+      document.getElementById('spin-btn').disabled = true;
+      const targetAngle = calcFinalAngle();
+      const totalRot    = targetAngle - angle;
+      const dur         = 4200 + Math.random() * 1200;
+      const t0 = performance.now(), a0 = angle;
+      let lastSeg = -1;
+      function ease(t) { return 1 - Math.pow(1-t, 3.2); }
+      function frame(now) {
+        const el = now - t0, t = Math.min(el/dur, 1);
+        angle = a0 + totalRot * ease(t);
+        const spd = Math.abs(totalRot/dur) * (1-ease(t)) * 1000;
+        const cur = getWinnerIndex();
+        if (cur !== lastSeg) { if (spd > .1) clickSound(Math.min(1, spd/8)); lastSeg = cur; }
+        drawWheel();
+        if (t < 1) {
+          animId = requestAnimationFrame(frame);
+        } else {
+          spinning = false;
+          document.getElementById('spin-btn').disabled = false;
+          setTimeout(() => showWinner(segs[getWinnerIndex()]), 350);
+        }
+      }
+      animId = requestAnimationFrame(frame);
+    }
+
+    /* ── Winner ── */
+    function showWinner(name) {
+      playTada();
+      document.getElementById('winner-name').textContent = name;
+      document.getElementById('winner-overlay').style.display = 'flex';
+      document.querySelector('.win-again').focus();
+    }
+    function closeWinner() {
+      document.getElementById('winner-overlay').style.display = 'none';
+    }
+
+    /* ── Reset ── */
+    function reset() {
+      if (spinning) { cancelAnimationFrame(animId); spinning = false; }
+      if (roObserver)  { roObserver.disconnect(); roObserver = null; }
+      if (lightTimer)  { clearInterval(lightTimer); lightTimer = null; }
+      // Clear all session state — nothing persists between rounds
+      segs = []; angle = 0; lightFrame = 0; forcedWinner = null; animId = null;
+      document.getElementById('game').style.display           = 'none';
+      document.getElementById('setup').style.display          = 'flex';
+      document.getElementById('winner-overlay').style.display = 'none';
+    }
+
+    /* ── Keyboard ── */
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeWinner(); });
+  </script>
+</body>
+</html>
